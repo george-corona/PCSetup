@@ -226,3 +226,7 @@ add-type $code
 #Apply the Change on the system 
 [Win32.Wallpaper]::SetWallpaper($wallpaper)
 }
+
+$Shortcut = [Environment]::GetFolderPath('Startup')
+Remove-Item $Shortcut\PCSetup.lnk
+Remove-Item C:\Temp\PCSetup -Recurse
