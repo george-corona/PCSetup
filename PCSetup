@@ -1,3 +1,9 @@
+$TempPath = "C:\Temp\"
+If(!(test-path -PathType container $TempPath))
+{
+      New-Item -ItemType Directory -Path $TempPath
+}
+
 $PCSetupPath = "C:\Temp\PCSetup"
 If(!(test-path -PathType container $PCSetupPath))
 {
@@ -5,7 +11,7 @@ If(!(test-path -PathType container $PCSetupPath))
 }
 
 $PCName = hostname
-$WebRootKey
+$WebRootKey = $PCSetupPath\webrootkey.txt
 
 ###################################################
 ### Install Webroot ###
