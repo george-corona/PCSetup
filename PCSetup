@@ -1,0 +1,229 @@
+###################################################
+### Install Webroot ###
+###################################################
+
+Invoke-WebRequest https://anywhere.webrootcloudav.com/zerol/wsasme.msi -OutFile C:\Temp\wsasme.msi
+
+msiexec.exe /i C:\Temp\wsasme.msi GUILIC=$webrootKey CMDLINE=SME,quiet /qn /l*v C:\Temp\webrootinstall.log
+
+#>
+
+Start-Sleep -seconds 10
+
+###################################################
+### Install Chocolatey Apps ###
+###################################################
+
+#choco install adobereader -y
+#choco install 7zip -y
+#choco install googlechrome -y
+#choco install firefox -y
+#choco install vlc -y
+#choco install microsoft-teams.install -y
+#choco install keeper -y
+
+choco install adobereader 7zip googlechrome firefox vlc microsoft-teams.install keeper -y
+
+#>
+
+Start-Sleep -seconds 15
+
+###################################################
+### Install Office ###
+###################################################
+
+Invoke-WebRequest https://github.com/george-corona/OfficeConfig/blob/main/setup.exe?raw=true -OutFile C:\Temp\OfficeSetup.exe
+Invoke-WebRequest https://raw.githubusercontent.com/george-corona/OfficeConfig/main/Office365Config.xml -OutFile C:\Temp\Office365Config.xml
+
+cd C:\Temp
+
+.\OfficeSetup.exe /configure .\Office365Config.xml
+
+#>
+
+Start-Sleep -seconds 15
+
+###################################################
+### Turn on Bitlocker ###
+###################################################
+
+# Enable Bitlocker on C: Drive
+
+Enable-BitLocker -MountPoint "C:" -EncryptionMethod XtsAes128 -UsedSpaceOnly -SkipHardwareTest -RecoveryPasswordProtector
+
+# Backup Bitlocker Recovery Key to AD or AAD depending on if system is Azure / AD joined.
+
+(Get-BitLockerVolume -MountPoint $volume.MountPoint).KeyProtector | Where-Object { $_.KeyProtectorType -eq 'RecoveryPassword' } | Foreach-Object {
+        $key = "$($_.KeyProtectorId)"}
+
+# Get computer name for naming recovery key file
+$PCDetails = gwmi win32_computersystem
+#$PCName = $PCDetails.name
+
+# Checks to see if system is domain joined - If AD Joined backs up to AD otherwise Backs up Recovery key to AAD.
+
+if (($PCDetails).partofdomain -eq $true) {
+    Manage-BDE -Protectors -ADBackup C: -ID "$key"
+}
+else{
+    try {
+        Manage-BDE -Protectors -AADBackup C: -ID "$key"
+    } catch {
+            (Get-BitLockerVolume -MountPoint C).KeyProtector > F:\$PCName-BitLockerRecoveryKey.txt
+            }
+}
+
+# Wait 5 seconds
+Start-Sleep -Seconds 5
+
+# Monitor encryption progress until it reaches 100%
+function Get-BDEPercent{
+    $BDEStatus = & manage-bde.exe -status c:
+    $BDEStatus = $BDEStatus -join " "
+    $Matches = $null
+    $BDEStatus -match '\:\s([\d]{2,})\.\d\%' | Out-Null
+    $Matches[1]
+}
+ 
+$Loop = $true
+ 
+while($Loop){
+    [int]$PercentComplete = Get-BDEPercent
+    if($PercentComplete -ne 100){
+        #Write-Progress -Activity "Bitlocker Drive Encryption Status" -Status "Encrypting.." -PercentComplete $PercentComplete
+        Start-Sleep -Seconds 5
+    }else{
+        #Write-Progress -Activity "Bitlocker Drive Encryption Status" -Completed
+        $Loop = $false
+    }
+}
+
+(Get-BitLockerVolume -MountPoint C).KeyProtector > D:\$PCName-BitLockerRecoveryKey.txt
+
+#>
+
+Start-Sleep -seconds 15
+
+###################################################
+### Set region to UK ###
+###################################################
+
+Set-WinSystemLocale en-GB
+
+#>
+
+Start-Sleep -seconds 15
+
+###################################################
+### Enable Remote Desktop ###
+###################################################
+
+Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+#
+
+Start-Sleep -seconds 15
+
+###################################################
+### Enable Wake on LAN ###
+###################################################
+
+CLS
+Write-Host "Checking Manufacturer" -foregroundcolor Green
+$Manufacturer = (Get-WmiObject -Class:Win32_ComputerSystem).Manufacturer
+if ($Manufacturer -like "*Dell*") {
+    Write-Host "Manufacturer is Dell. Installing Module and trying to enable Wake on LAN." -foregroundcolor Green
+    Write-Host "Installing Dell Bios Provider" -foregroundcolor Green
+    Install-Module -Name DellBIOSProvider -Force
+    import-module DellBIOSProvider
+    try { 
+        set-item -Path "DellSmBios:\PowerManagement\WakeOnLan" -value "LANOnly" -ErrorAction Stop
+    }
+    catch {
+        write-host "an error occured. Could not set BIOS to WakeOnLan. Please try setting WOL manually" -ForegroundColor Yellow
+    }
+}
+if ($Manufacturer -like "*HP*" -or $Manufacturer -like "*Hewlett*") {
+    Write-Host "Manufacturer is HP. Installing module and trying to enable WakeOnLan. All HP Drivers are required for this operation to succeed." -foregroundcolor Green
+    Write-Host "Installing HP Provider" -foregroundcolor Green
+    Install-Module -Name HPCMSL -Force -AcceptLicense
+    import-module HPCMSL
+    try { 
+        $WolTypes = get-hpbiossettingslist | Where-Object { $_.Name -like "*Wake On Lan*" }
+        ForEach ($WolType in $WolTypes) {
+            write-host "Setting WOL Type: $($WOLType.Name)" -ForegroundColor Green
+            Set-HPBIOSSettingValue -name $($WolType.name) -Value "Boot to Hard Drive" -ErrorAction Stop 
+        }
+    }
+    catch {
+        write-host "an error occured. Could not set BIOS to WakeOnLan. Please try manually" -ForegroundColor Yellow
+    }
+}
+if ($Manufacturer -like "*Lenovo*") {
+    Write-Host "Manufacturer is Lenovo. Trying to set via WMI. All Lenovo Drivers are required for this operation to succeed." -foregroundcolor Green
+    try { 
+        Write-Host "Setting BIOS." -foregroundcolor Green
+        (Get-WmiObject -ErrorAction Stop -class "Lenovo_SetBiosSetting" -namespace "root\wmi").SetBiosSetting('WakeOnLAN,Primary') | Out-Null
+        Write-Host "Saving BIOS." -foregroundcolor Green
+        (Get-WmiObject -ErrorAction Stop -class "Lenovo_SaveBiosSettings" -namespace "root\wmi").SaveBiosSettings() | Out-Null
+    }
+    catch {
+        write-host "an error occured. Could not set BIOS to WakeOnLan. Please try manually" -ForegroundColor Yellow
+    }
+}
+write-host "Setting NIC to enable WOL" -ForegroundColor Green
+$NicsWithWake = Get-CimInstance -ClassName "MSPower_DeviceWakeEnable" -Namespace "root/wmi"
+foreach ($Nic in $NicsWithWake) {
+    write-host "Enabling for NIC" -ForegroundColor green
+    Set-CimInstance $NIC -Property @{Enable = $true }
+}
+
+#>
+
+Start-Sleep -seconds 15
+
+###################################################
+### Set wallpaper ###
+###################################################
+
+# Download wallpaper image
+Invoke-WebRequest https://i.postimg.cc/bYR1PxvM/CIT-wallpaper.jpg -OutFile C:\Temp\CIT-wallpaper.jpg
+
+write-host ("Running: " + $MyInvocation.MyCommand.Name)
+$wallpaper = "C:\Temp\CIT-wallpaper.jpg"
+if((test-path $wallpaper) -eq $false)
+{
+    Write-Host "$wallpaper does not exist"
+	exit
+}
+else
+{
+    Write-Host "Configuring wallpaper"
+	#Remove-ItemProperty -path "HKCU:\Control Panel\Desktop" -name WallPaper               
+    #set-itemproperty -path "HKCU:\Control Panel\Desktop" -name WallPaper -value $wallpaper    
+	#Sleep -seconds 5
+    #RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters ,1 ,True
+	
+$code = @' 
+using System.Runtime.InteropServices; 
+namespace Win32{ 
+    
+     public class Wallpaper{ 
+        [DllImport("user32.dll", CharSet=CharSet.Auto)] 
+         static extern int SystemParametersInfo (int uAction , int uParam , string lpvParam , int fuWinIni) ; 
+         
+         public static void SetWallpaper(string thePath){ 
+            SystemParametersInfo(20,0,thePath,3); 
+         }
+    }
+ } 
+'@
+
+add-type $code 
+
+#Apply the Change on the system 
+[Win32.Wallpaper]::SetWallpaper($wallpaper)
+}
+
+#>
