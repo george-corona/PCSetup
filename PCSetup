@@ -11,7 +11,7 @@ If(!(test-path -PathType container $PCSetupPath))
 }
 
 $PCName = hostname
-$WebRootKey = Get-Content $PCSetupPath\webrootkey.txt
+$WebRootKey = Get-Content $PCSetupPath\webrootkey.txt 
 
 ###################################################
 ### Install Webroot ###
