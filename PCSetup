@@ -107,7 +107,7 @@ while($Loop){
     }
 }
 
-(Get-BitLockerVolume -MountPoint C).KeyProtector > D:\$PCName-BitLockerRecoveryKey.txt
+(Get-BitLockerVolume -MountPoint C).KeyProtector > F:\$PCName-BitLockerRecoveryKey.txt
 
 Start-Sleep -seconds 15
 
