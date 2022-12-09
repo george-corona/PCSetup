@@ -1,12 +1,19 @@
+$PCSetupPath = "C:\Temp\PCSetup"
+If(!(test-path -PathType container $PCSetupPath))
+{
+      New-Item -ItemType Directory -Path $PCSetupPath
+}
+
+$PCName = hostname
+$WebRootKey
+
 ###################################################
 ### Install Webroot ###
 ###################################################
 
-Invoke-WebRequest https://anywhere.webrootcloudav.com/zerol/wsasme.msi -OutFile C:\Temp\wsasme.msi
+Invoke-WebRequest https://anywhere.webrootcloudav.com/zerol/wsasme.msi -OutFile C:\Temp\PCSetup\wsasme.msi
 
-msiexec.exe /i C:\Temp\wsasme.msi GUILIC=$webrootKey CMDLINE=SME,quiet /qn /l*v C:\Temp\webrootinstall.log
-
-#>
+msiexec.exe /i C:\Temp\wsasme.msi GUILIC=$webrootKey CMDLINE=SME,quiet /qn /l*v C:\Temp\PCSetup\webrootinstall.log
 
 Start-Sleep -seconds 10
 
@@ -24,22 +31,18 @@ Start-Sleep -seconds 10
 
 choco install adobereader 7zip googlechrome firefox vlc microsoft-teams.install keeper -y
 
-#>
-
 Start-Sleep -seconds 15
 
 ###################################################
 ### Install Office ###
 ###################################################
 
-Invoke-WebRequest https://github.com/george-corona/OfficeConfig/blob/main/setup.exe?raw=true -OutFile C:\Temp\OfficeSetup.exe
-Invoke-WebRequest https://raw.githubusercontent.com/george-corona/OfficeConfig/main/Office365Config.xml -OutFile C:\Temp\Office365Config.xml
+Invoke-WebRequest https://github.com/george-corona/OfficeConfig/blob/main/setup.exe?raw=true -OutFile C:\Temp\PCSetup\OfficeSetup.exe
+Invoke-WebRequest https://raw.githubusercontent.com/george-corona/OfficeConfig/main/Office365Config.xml -OutFile C:\Temp\PCSetup\Office365Config.xml
 
-cd C:\Temp
+cd C:\Temp\PCSetup
 
 .\OfficeSetup.exe /configure .\Office365Config.xml
-
-#>
 
 Start-Sleep -seconds 15
 
@@ -100,8 +103,6 @@ while($Loop){
 
 (Get-BitLockerVolume -MountPoint C).KeyProtector > D:\$PCName-BitLockerRecoveryKey.txt
 
-#>
-
 Start-Sleep -seconds 15
 
 ###################################################
@@ -109,8 +110,6 @@ Start-Sleep -seconds 15
 ###################################################
 
 Set-WinSystemLocale en-GB
-
-#>
 
 Start-Sleep -seconds 15
 
@@ -120,8 +119,6 @@ Start-Sleep -seconds 15
 
 Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
 Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
-#
 
 Start-Sleep -seconds 15
 
@@ -179,8 +176,6 @@ foreach ($Nic in $NicsWithWake) {
     Set-CimInstance $NIC -Property @{Enable = $true }
 }
 
-#>
-
 Start-Sleep -seconds 15
 
 ###################################################
@@ -225,5 +220,3 @@ add-type $code
 #Apply the Change on the system 
 [Win32.Wallpaper]::SetWallpaper($wallpaper)
 }
-
-#>
