@@ -239,4 +239,4 @@ add-type $code
 }
 
 Remove-Item $Shortcut\PCSetup.lnk
-Remove-Item C:\Temp\PCSetup -Recurse
+Remove-Item C:\Temp\PCSetup -Recurse -Confirm 
