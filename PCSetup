@@ -2,6 +2,10 @@
 ### Set Variables ###
 ###################################################
 
+# Shortcut saved to Startup folder
+$Shortcut = [Environment]::GetFolderPath('Startup')
+
+# Temp folder to store setup files
 $TempPath = "C:\Temp\"
 If(!(test-path -PathType container $TempPath))
 {
@@ -14,7 +18,10 @@ If(!(test-path -PathType container $PCSetupPath))
       New-Item -ItemType Directory -Path $PCSetupPath
 }
 
+# Gets PCName for BitLocker Key
 $PCName = hostname
+
+# Gets webroot license to install WebRoot
 $WebRootKey = Get-Content $PCSetupPath\webrootkey.txt 
 
 ###################################################
@@ -231,6 +238,5 @@ add-type $code
 [Win32.Wallpaper]::SetWallpaper($wallpaper)
 }
 
-$Shortcut = [Environment]::GetFolderPath('Startup')
 Remove-Item $Shortcut\PCSetup.lnk
 Remove-Item C:\Temp\PCSetup -Recurse
